@@ -22,39 +22,53 @@ type Idiom struct {
 
 var db *sql.DB
 
-func main() {
-	var err error
-	// .env ファイルを読み込む
-	err = godotenv.Load()
-	if err != nil {
-		log.Println(".envファイルが見つかりません。環境変数から直接読み込みます。")
+func initDB() error {
+	if db != nil {
+		return nil
 	}
+	var err error
 
 	// 1. Tursoの環境変数を取得
 	dbUrl := os.Getenv("TURSO_DATABASE_URL")
 	authToken := os.Getenv("TURSO_AUTH_TOKEN")
 
 	if dbUrl == "" || authToken == "" {
-		log.Fatal("TURSO_DATABASE_URL または TURSO_AUTH_TOKEN が設定されていません")
+		return fmt.Errorf("TURSO_DATABASE_URL または TURSO_AUTH_TOKEN が設定されていません")
 	}
 
 	// 2. Tursoに接続するための文字列を作成
 	connStr := fmt.Sprintf("%s?authToken=%s", dbUrl, authToken)
 	db, err = sql.Open("libsql", connStr)
 	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func main() {
+	// ローカル開発用
+	godotenv.Load()
+	if err := initDB(); err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
 	// APIの設定
-	http.HandleFunc("/api/idioms", handleIdioms)
+	http.HandleFunc("/api/idioms", Handler)
 
 	fmt.Println("Server started at http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func handleIdioms(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("リクエストを受信しました！: /api/idioms")
+func Handler(w http.ResponseWriter, r *http.Request) {
+	log.Println("リクエストを受信しました！")
+
+	// DBの初期化（Vercel用）
+	if err := initDB(); err != nil {
+		log.Printf("DB初期化エラー: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 
 	// 環境変数から許可するドメインを取得（設定がない場合は開発用に * を使用）
 	allowedOrigin := os.Getenv("ALLOWED_ORIGIN")

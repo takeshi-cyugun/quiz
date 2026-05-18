@@ -10,6 +10,7 @@
     {
       "src": "/api/(.*)",
       "dest": "backend/main.go"
-    }
+    },
+    { "handle": "filesystem" }
   ]
 }
