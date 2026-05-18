@@ -1,4 +1,4 @@
-package main
+package handler
 
 import (
 	"database/sql"
@@ -63,18 +63,21 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+	// プリフライトリクエスト (OPTIONS) の対応
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	// クエリパラメータからジャンルを取得し、テーブルを切り替える
 	genre := r.URL.Query().Get("genre")
-	log.Printf("受信したジャンル: %s", genre)
-	tableName := "idioms"
 	if genre == "ことわざ" || genre == "koto" {
 		tableName = "proverbs"
 	}
 
-	var idioms []Idiom // 複数のIdiomを格納するためのスライス
-	/* 調整 */
+	idioms := []Idiom{} // 空のスライスで初期化することで、データがない場合に null ではなく [] を返すようにします
 
 	// 3. データベースから全件取得
 	query := fmt.Sprintf("SELECT id, phrase, reading, meaning, usage FROM %s ORDER BY id ASC", tableName)
