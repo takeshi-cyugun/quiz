@@ -1,0 +1,107 @@
+package main
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
+	_ "github.com/tursodatabase/libsql-client-go/libsql" // Turso (libSQL) ドライバ
+)
+
+type Idiom struct {
+	ID      int    `json:"id"`
+	Phrase  string `json:"phrase"`
+	Reading string `json:"reading"`
+	Meaning string `json:"meaning"`
+	Usage   string `json:"usage"`
+}
+
+var db *sql.DB
+
+func main() {
+	var err error
+	// .env ファイルを読み込む
+	err = godotenv.Load()
+	if err != nil {
+		log.Println(".envファイルが見つかりません。環境変数から直接読み込みます。")
+	}
+
+	// 1. Tursoの環境変数を取得
+	dbUrl := os.Getenv("TURSO_DATABASE_URL")
+	authToken := os.Getenv("TURSO_AUTH_TOKEN")
+
+	if dbUrl == "" || authToken == "" {
+		log.Fatal("TURSO_DATABASE_URL または TURSO_AUTH_TOKEN が設定されていません")
+	}
+
+	// 2. Tursoに接続するための文字列を作成
+	connStr := fmt.Sprintf("%s?authToken=%s", dbUrl, authToken)
+	db, err = sql.Open("libsql", connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// APIの設定
+	http.HandleFunc("/api/idioms", handleIdioms)
+
+	fmt.Println("Server started at http://localhost:8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func handleIdioms(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("リクエストを受信しました！: /api/idioms")
+
+	// 環境変数から許可するドメインを取得（設定がない場合は開発用に * を使用）
+	allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
+	if allowedOrigin == "" {
+		allowedOrigin = "*"
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// クエリパラメータからジャンルを取得し、テーブルを切り替える
+	genre := r.URL.Query().Get("genre")
+	log.Printf("受信したジャンル: %s", genre)
+	tableName := "idioms"
+	if genre == "ことわざ" || genre == "koto" {
+		tableName = "proverbs"
+	}
+
+	var idioms []Idiom // 複数のIdiomを格納するためのスライス
+
+	// 3. データベースから全件取得
+	query := fmt.Sprintf("SELECT id, phrase, reading, meaning, usage FROM %s ORDER BY id ASC", tableName)
+	rows, err := db.Query(query)
+	if err != nil {
+		log.Printf("データベースクエリのエラー: %v", err) // 詳細なエラーをGoのコンソールに表示
+		http.Error(w, "DBエラーが発生しました", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close() // 忘れずにrowsをクローズする
+
+	for rows.Next() {
+		var idiom Idiom
+		err := rows.Scan(&idiom.ID, &idiom.Phrase, &idiom.Reading, &idiom.Meaning, &idiom.Usage)
+		if err != nil {
+			log.Printf("行スキャンエラー: %v", err)
+			http.Error(w, "DBデータ読み込みエラー", http.StatusInternalServerError)
+			return
+		}
+		idioms = append(idioms, idiom)
+	}
+	if err = rows.Err(); err != nil {
+		log.Printf("行イテレーションエラー: %v", err)
+		http.Error(w, "DBデータ処理エラー", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(idioms) // スライス全体をJSONとしてエンコード
+}
