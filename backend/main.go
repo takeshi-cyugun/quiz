@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/joho/godotenv"
 	_ "github.com/tursodatabase/libsql-client-go/libsql" // Turso (libSQL) ドライバ
 )
 
@@ -43,21 +42,6 @@ func initDB() error {
 		return err
 	}
 	return nil
-}
-
-func main() {
-	// ローカル開発用
-	godotenv.Load()
-	if err := initDB(); err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	// APIの設定
-	http.HandleFunc("/api/idioms", Handler)
-
-	fmt.Println("Server started at http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {

@@ -4,6 +4,15 @@
     {
       "src": "backend/main.go",
       "use": "@vercel/go"
+    },
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "installCommand": "npm install",
+        "buildCommand": "npm run build",
+        "outputDirectory": "frontend/.vercel/output/static"
+      }
     }
   ],
   "routes": [
@@ -11,6 +20,9 @@
       "src": "/api/(.*)",
       "dest": "backend/main.go"
     },
-    { "handle": "filesystem" }
+    {
+      "src": "/(.*)",
+      "dest": "frontend/$1"
+    }
   ]
 }
