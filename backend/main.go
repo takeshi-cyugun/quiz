@@ -74,6 +74,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var idioms []Idiom // 複数のIdiomを格納するためのスライス
+	/* 調整 */
 
 	// 3. データベースから全件取得
 	query := fmt.Sprintf("SELECT id, phrase, reading, meaning, usage FROM %s ORDER BY id ASC", tableName)
