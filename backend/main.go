@@ -73,6 +73,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	// クエリパラメータからジャンルを取得し、テーブルを切り替える
 	genre := r.URL.Query().Get("genre")
+	tableName := "idioms"
 	if genre == "ことわざ" || genre == "koto" {
 		tableName = "proverbs"
 	}
